@@ -1,0 +1,493 @@
+---
+title: "Final_Project"
+author: "Fatma KARADAĞ~Gizem PESEN"
+date: "13 01 2022"
+output: html_document
+---
+
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+In our data, which we selected to examine lung cancer, there are 25 columns. 
+
+## Import Libraries
+
+
+```{r}
+library(logisticPCA)
+library(ggplot2)
+library(rpart)
+library(caTools)
+library(readxl)
+library(corrplot)
+library(Amelia)
+library(mlbench)
+library(caret)
+library(plyr)
+library(MASS)
+library(dplyr)
+library(factoextra)
+library(cluster)
+library(stats)
+library(plotrix)
+library(ROSE)
+
+```
+
+
+## Loading the Data
+
+
+```{r }
+df <- read_excel("C:/Users/ftmak/OneDrive/Masaüstü/cancer patient data sets.xlsx")
+
+
+```
+
+## Exploratory data analysis
+
+```{r}
+summary(df)
+```
+
+```{r}
+head(df,n=6)
+```
+
+
+```{r}
+colnames(df)
+```
+
+Patient Id refers to the people whose data is received. The level of the disease is divided into three as "Low", "Medium" and "High" with the Level column.
+Age: What is the relationship between age and disease level?
+Gender: do women or men get lung cancer more often? Is gender a factor in this?
+Smoking , Passive Smoker , Alcohol use : Do harmful substances affect lung cancer?
+Diet , Obesity: What is the effect of eating habits on cancer?
+Genetic Risk, chronic Lung Disease : what is the effect of genetic or chronic diseases on cancer?
+Air Pollution, Dust Allergy , OccuPational Hazards : how do environmental influences relate to lung cancer?
+Snoring , Dry Cough , Frequent Cold, Clubbing of Finger Nails , Swallowing Difficulty , Wheezing , Shortness of Breath , Weight Loss , Fatigue , Coughing of Blood , Chest Pain : Which symptoms are decisive for the diagnosis of lung cancer?
+
+
+```{r}
+colnames(df) <- c("patiend_id", "age", 
+                       "gender", "air_pollution", "alcohol_use","dust_allergy", "occupational_hazards","genetic_risk","chronic_lung_disease","balanced_diet","obesity","smoking","passive_smoker","chest_pain","coughing_of_blood","fatigue","weight_loss","shortness_of_breath","wheezing","swallowing_difficulty","clubbing_of_finger_nails","frequent_cold","dry_cough","snoring","level")
+```
+
+
+We changed the column names and made them more understandable. Also, having a space in the column name caused us trouble in the future.
+
+
+```{r}
+colnames(df)
+```
+
+```{r}
+sapply(df,class)
+```
+
+
+We have printed the data type of the columns, in this way, when we need to get numeric values, we will be able to decide which range to take from our data.
+
+
+
+```{r}
+s1 <- dplyr::select(df, age:smoking)
+s1
+```
+
+
+From these variables, we selected all the variables between the "Age" and "Smoking" and defined them as "s1".
+
+
+
+```{r}
+df %>%
+    select(age , level) %>%
+    filter(age > 63)
+```
+
+We looked at the level (high-medium-low) of the disease in people older than 63 years of age.We realızed there are only "Hıgh" or "Medıum" levels. So we can generalıze old people lung cancer rısk ıs more because there ıs no "Low" level ın ıt.
+
+```{r}
+df %>%
+    select(age , level) %>%
+    filter(age < 40)
+```
+
+We looked at the level (high-medium-low) of the disease in people younger than 40 years old.Usually level is between medium and low.
+
+```{r}
+select(df,obesity, level)
+```
+
+## Visualization Techniques
+
+```{r}
+df$gender <- as.factor(df$gender)
+summary(df$gender)
+```
+
+1 is male,2 is female
+
+```{r}
+slices <- c( 402, 598)
+lbls <- c("Female" ,"Male")
+pie3D(slices,labels=lbls,explode=0.05,
+   main="Pie Chart of  ")
+```
+
+
+```{r}
+ggplot(data=df, aes(x=gender)) +
+  geom_bar(fill="orange", alpha=0.7)+
+  labs(title = "BarChart", x="Gender", y="Count")
+```
+
+```{r}
+ggplot(data=df, aes(x=genetic_risk, y=level, fill= genetic_risk)) +
+  geom_boxplot() + 
+  labs(title = "Boxplot", x="genetic risk", y="Level") +
+  stat_summary(fun=mean, geom="point", shape=4, size=2) +
+  theme(axis.text.x=element_text(angle=-45,hjust=0,vjust=0))
+
+```
+
+We looked that genetıc rısk and cancer level relatıonshıp .You can see clearly when genetıc rısk more than 6 ın 10 the cancer level ıs hıgh.
+
+```{r}
+ggplot(df, aes(x=level,fill = level))+ 
+  theme_bw()+
+  geom_bar()+
+  labs(x = "Level", y = "Data Count", title="Lung Cancer")
+```
+
+
+
+```{r}
+p<-ggplot(df, aes(x=obesity, y=level, color=level)) +
+  geom_bar(stat="identity", fill="white")
+p
+```
+
+
+
+
+```{r}
+a <- ggplot(df, aes(x= level, y=genetic_risk, color=genetic_risk)) +
+  geom_bar(stat="identity", fill="white")
+a
+```
+
+```{r}
+b <- ggplot(data=df, aes(x=level, y=air_pollution, fill=gender)) +
+geom_bar(stat="identity", color="black", position=position_dodge())+
+  theme_minimal()
+b + scale_fill_manual(values=c('#999999','#E69F00'))
+
+
+```
+
+
+
+## Checking Missing data
+
+
+```{r}
+missmap(df)
+```
+
+Looking at the image above, it is clear that there is no missing value in our data. Therefore, we do not need to delete or change any columns.
+
+
+## Checking imbalanced data
+
+
+
+```{r}
+table(df$level)
+```
+```{r}
+prop.table(table(df$level))
+```
+
+
+The level column we used in our data is in a balanced state. That is, since there are such small differences between them, they can be ignored in the classification and clustering processes.
+In other words, in line with what we read and what is explained in the lesson, it will not cause us a big problem.
+
+
+## Multicolinearity
+
+```{r}
+correlations <- cor(df[c(4:24)])
+corrplot::corrplot(correlations,method = "square",tl.cex = 0.6, tl.col = "black")
+
+```
+
+As you see above some of our columns have a strong positive correlation between them.That problem name is multicolinearity.
+
+
+## Apply PCA
+
+
+The basic logic behind PCA is to represent a multidimensional data with fewer variables by capturing the essential features in the data.
+
+
+```{r}
+pca <- prcomp(df[,4:7], cor=TRUE, scale = TRUE)
+```
+
+We got the first 4 values that are numeric so the range is between 4 and 7.
+
+
+```{r}
+summary(pca)
+```
+
+
+```{r}
+fviz_eig(pca, addlabels=TRUE, ylim=c(0,60), geom = c("bar", "line"), barfill = "pink",  
+         barcolor="blue",linecolor = "red", ncp=10)+
+         labs(title = "Cancer All Variances - PCA",
+          x = "Principal Components", y = "% of variances")
+```
+
+
+```{r}
+df$level[df$gender==4] = '1'
+df$level[df$gender==2] = '2'
+
+fviz_pca_biplot(pca, col.ind = df$level, col="black",
+                palette = "jco", geom = "point", repel=TRUE,
+                legend.title="Gender", addEllipses = TRUE)
+```
+
+When we look at the first 3 components of our PCA results, it is enough for us to reach a great figure of approximately 97%
+
+When we look at the pca values, the Standard Deviation value is decreasing as it should be. Proportion of Variance value decreases, Cumulative Proportion value increases.
+
+
+## Apply Logistic Regression 
+
+
+Logistic regression is used to describe data and explain the relationship between a dependent binary variable and one or more nominal, inter-row, interval, or ratio-level independent variables.
+
+dependet variable is gender in our data.
+
+```{r}
+df$gender <- as.factor(df$gender)
+set.seed(123)
+
+sample<- createDataPartition(y= df$gender,p=0.8,list = FALSE)
+
+train_data <- df[sample,]
+test_data <- df[-sample,]
+```
+
+```{r}
+logistic_model <- glm(gender~.,data = train_data,family = "binomial")
+
+```
+
+
+We have searched many sources for the warning above, it is not a factor affecting the result. It can be ignored.
+
+
+
+```{r}
+
+prediction <- predict(logistic_model, data = train_data, type = "response")
+
+a <- factor(ifelse(prediction>0.5,"1","2"))
+
+#confmatrix <-table(Actual_value=train_data$gender,Predicted_value=prediction >0.5)
+#confmatrix
+
+confusionMatrix(train_data$gender,as.factor(a))
+
+```
+
+
+```{r}
+plot(confusionMatrix)
+```
+
+
+
+```{r}
+pred_lda <- predict(logistic_model, test_data)
+cm_lda <- confusionMatrix(pred_lda, test_data$gender, positive = "M")
+cm_lda
+
+```
+
+
+
+## Apply Clustering Techniques
+
+
+```{r}
+df_pr <- prcomp(df[,c(4:7)], center = TRUE, scale = TRUE)
+summary(df_pr)
+```
+
+```{r}
+screeplot(df_pr, type = "l", npcs = 4, main = "Screeplot of the first 4 PCs")
+abline(h = 1, col="red", lty=5)
+legend("topright", legend=c("Eigenvalue = 1"),
+       col=c("red"), lty=5, cex=0.6)
+```
+
+
+
+```{r}
+plot(df_pr$x[,4],df_pr$x[,5], xlab="PC1 (82%)", ylab = "PC2 (0,8%)", main = "PC1 / PC2 - plot")
+```
+
+
+
+## KMEANS
+
+```{r}
+
+set.seed(101)
+km <- kmeans(df[,4:7], 2)
+plot(df_pr$x[,4],df_pr$x[,5], xlab="PC1 (82%)", 
+     ylab = "PC2 (0,8%)", 
+     main = "PC1 / PC2 - plot", 
+     col=km$cluster)
+```
+
+```{r}
+km$centers
+table(km$cluster, df$level)
+```
+
+km centers ile 4 ve 7 arasındaki columnların centerslarını bulur.
+sonra da level ile  kümeleme yapar. 
+
+```{r}
+set.seed(102)
+km <- kmeans(df[,4:7], 3)
+plot(df_pr$x[,4],df_pr$x[,5], xlab="PC1 (73%)", 
+     ylab = "PC2 (22%)", 
+     main = "PC1 / PC2 - plot", 
+     col=km$cluster)
+```
+
+
+```{r}
+km
+```
+
+
+```{r}
+table(km$cluster, df$level)
+```
+
+```{r}
+km <- kmeans(df[,4:7], 3)
+#We can also plot clusters with fviz_cluster() function
+fviz_cluster(km, data = df[,4:7])
+```
+
+
+
+## Hierchical
+
+
+```{r}
+distance <- dist(df[,4:7], method="euclidean") 
+
+fviz_nbclust(df[,4:7], FUN = hcut, method = "wss")
+
+```
+
+
+
+
+
+```{r}
+hier <- hclust(distance, method="average")
+plot(hier) 
+rect.hclust(hier, k=2, border="red")
+```
+
+```{r}
+hier_cut <- cutree(hier, 2)
+table(predicted=hier_cut, true=df$level)
+```
+
+
+```{r}
+plot(hier) 
+rect.hclust(hier, k=3, border="blue")
+```
+
+
+
+```{r}
+distance <- dist(df[,4:7], method="euclidean") 
+hier_diana <- diana(df[,4:7])
+# Divise coefficient; amount of clustering structure found
+hier_diana$dc
+```
+
+
+
+```{r}
+pltree(hier_diana, cex = 0.6, hang = -1, main = "Dendrogram of diana")
+```
+
+
+
+
+
+
+
+
+## Apply Classification Techniques
+
+
+
+# Decısıon Tree
+
+```{r}
+
+
+
+```
+
+
+
+
+```{r}
+customRF <- list(type = "Classification", library = "randomForest", loop = NULL)
+customRF$parameters <- data.frame(parameter = c("mtry", "ntree", "nodesize"), class = rep("numeric", 3), label = c("mtry", "ntree", "nodesize"))
+customRF$grid <- function(x, y, len = NULL, search = "grid") {}
+customRF$fit <- function(x, y, wts, param, lev, last, weights, classProbs, ...) {
+  randomForest(x, y, mtry = param$mtry, ntree=param$ntree, nodesize=param$nodesize, ...)
+}
+customRF$predict <- function(modelFit, newdata, preProc = NULL, submodels = NULL)
+   predict(modelFit, newdata)
+customRF$prob <- function(modelFit, newdata, preProc = NULL, submodels = NULL)
+   predict(modelFit, newdata, type = "prob")
+customRF$sort <- function(x) x[order(x[,1]),]
+customRF$levels <- function(x) x$classes
+}
+```
+
+
+
+
+```{r}
+
+```
+
+```{r}
+
+```
+
